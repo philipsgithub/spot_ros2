@@ -1031,6 +1031,7 @@ def main(args=None):
     node.declare_parameter('async_tasks_rate', 10)
     node.declare_parameter('cmd_duration', 0.125)
     node.declare_parameter('start_estop', False)
+    node.declare_parameter('rgb_cameras', True)
     node.declare_parameter('publish_rgb', True)
     node.declare_parameter('publish_depth', True)
     node.declare_parameter('publish_depth_registered', False)
@@ -1045,6 +1046,7 @@ def main(args=None):
     spot_ros.get_lease_on_action = node.get_parameter('get_lease_on_action')
     spot_ros.continually_try_stand = node.get_parameter('continually_try_stand')
 
+    spot_ros.rgb_cameras = node.get_parameter('rgb_cameras')
     spot_ros.publish_rgb = node.get_parameter('publish_rgb')
     spot_ros.publish_depth = node.get_parameter('publish_depth')
     spot_ros.publish_depth_registered = node.get_parameter('publish_depth_registered')
@@ -1107,7 +1109,7 @@ def main(args=None):
         spot_ros.spot_wrapper = SpotWrapper(spot_ros.username, spot_ros.password, spot_ros.ip, spot_ros.name,
                                             spot_ros.wrapper_logger, spot_ros.start_estop.value, spot_ros.estop_timeout.value,
                                             spot_ros.rates, spot_ros.callbacks, spot_ros.use_take_lease,
-                                            spot_ros.get_lease_on_action, spot_ros.continually_try_stand)
+                                            spot_ros.get_lease_on_action, spot_ros.continually_try_stand, spot_ros.rgb_cameras.value)
         if not spot_ros.spot_wrapper.is_valid:
             return
 
