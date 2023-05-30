@@ -54,6 +54,15 @@ friendly_joint_names["hl.kn"] = "rear_left_knee"
 friendly_joint_names["hr.hx"] = "rear_right_hip_x"
 friendly_joint_names["hr.hy"] = "rear_right_hip_y"
 friendly_joint_names["hr.kn"] = "rear_right_knee"
+friendly_joint_names["arm0.sh0"] = "arm_shoulder_rot"
+friendly_joint_names["arm0.sh1"] = "arm_shoulder_tilt"
+friendly_joint_names["arm0.hr0"] = "arm_hr0"
+friendly_joint_names["arm0.el0"] = "arm_elbow_tilt"
+friendly_joint_names["arm0.el1"] = "arm_elbow_rot"
+friendly_joint_names["arm0.wr0"] = "arm_wrist_tilt"
+friendly_joint_names["arm0.wr1"] = "arm_wrist_rot"
+friendly_joint_names["arm0.f1x"] = "arm_gripper"
+
 cv_bridge = CvBridge()
 
 
@@ -275,7 +284,7 @@ def GetJointStatesFromState(state, spot_wrapper):
     local_time = spot_wrapper.robotToLocalTime(state.kinematic_state.acquisition_timestamp)
     joint_state.header.stamp = Time(sec=local_time.seconds, nanosec=local_time.nanos)
     for joint in state.kinematic_state.joint_states:
-        joint_state.name.append(friendly_joint_names.get(joint.name, "ERROR"))
+        joint_state.name.append(friendly_joint_names.get(joint.name, f"ERROR ({joint.name} unknown)"))
         joint_state.position.append(joint.position.value)
         joint_state.velocity.append(joint.velocity.value)
         joint_state.effort.append(joint.load.value)
