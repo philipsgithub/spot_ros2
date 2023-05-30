@@ -33,6 +33,7 @@ from spot_msgs.msg import BatteryState, BatteryStateArray
 from spot_msgs.msg import Feedback
 from spot_msgs.msg import MobilityParams
 from spot_msgs.action import NavigateTo
+from spot_msgs.action import Dock
 from spot_msgs.action import RobotCommand
 from spot_msgs.action import Trajectory
 from spot_msgs.action import Manipulation
@@ -902,6 +903,41 @@ class SpotROS:
 
         return result
 
+    def handle_dock_feedback(self):
+        """Thread function to send dock feedback"""
+        while rclpy.ok() and self.run_dock:
+            localization_state = self.spot_wrapper._graph_nav_client.get_localization_state()
+            if localization_state.localization.waypoint_id:
+                feedback = Dock.Feedback()
+                feedback.waypoint_id = localization_state.localization.waypoint_id
+                self.goal_handle.publish_feedback(feedback)
+            time.sleep(0.1)
+            ## rclpy.Rate(10).sleep()
+
+    def handle_dock(self, goal_handle):
+        """ROS service handler to run mission of the robot.  The robot will replay a mission"""
+        # create thread to periodically publish feedback
+        self.goal_handle = goal_handle
+        feedback_thread = threading.Thread(target = self.handle_dock_feedback, args = ())
+        self.run_dock = True
+        feedback_thread.start()
+        # run dock
+        resp = self.spot_wrapper.dock(dock_id = goal_handle.request.dock_id,
+                                      num_retries = goal_handle.request.num_retries)
+        self.run_dock = False
+        feedback_thread.join()
+
+        result = Dock.Result()
+        result.success = resp[0]
+        result.message = resp[1]
+        # check status
+        if resp[0]:
+            goal_handle.succeed()
+        else:
+            goal_handle.abort()
+
+        return result
+
     def populate_camera_static_transforms(self, image_data):
         """Check data received from one of the image tasks and use the transform snapshot to extract the camera frame
         transforms. This is the transforms from body->frontleft->frontleft_fisheye, for example. These transforms
@@ -1283,6 +1319,9 @@ def main(args=None):
         spot_ros.navigate_as = ActionServer(node, NavigateTo, 'navigate_to', spot_ros.handle_navigate_to,
                                             callback_group=spot_ros.group)
         # spot_ros.navigate_as.start() # As is online
+
+        spot_ros.dock_as = ActionServer(node, Trajectory, 'dock', spot_ros.handle_dock,
+                                                  callback_group=spot_ros.group)
 
         spot_ros.trajectory_server = ActionServer(node, Trajectory, 'trajectory', spot_ros.handle_trajectory,
                                                   callback_group=spot_ros.group)
