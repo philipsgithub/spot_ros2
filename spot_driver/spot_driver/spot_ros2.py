@@ -289,6 +289,16 @@ class SpotROS:
         response.success, response.message = self.spot_wrapper.battery_change_pose()
         return response
 
+    def handle_dock(self, request, response):
+        """ROS service handler for the dock service"""
+        response.success, response.message = self.spot_wrapper.dock(520)
+        return response
+
+    def handle_undock(self, request, response):
+        """ROS service handler for the undock service"""
+        response.success, response.message = self.spot_wrapper.undock(timeout=20)
+        return response
+
     def handle_power_on(self, request, response):
         """ROS service handler for the power-on service"""
         response.success, response.message = self.spot_wrapper.power_on()
@@ -1204,6 +1214,14 @@ def main(args=None):
         node.create_service(
             Trigger, "rollover",
             lambda request, response: spot_ros.service_wrapper('rollover', spot_ros.handle_rollover, request, response),
+            callback_group=spot_ros.group)
+        node.create_service(
+            Trigger, "dock",
+            lambda request, response: spot_ros.service_wrapper('dock', spot_ros.handle_dock, request, response),
+            callback_group=spot_ros.group)
+        node.create_service(
+            Trigger, "undock",
+            lambda request, response: spot_ros.service_wrapper('undock', spot_ros.handle_undock, request, response),
             callback_group=spot_ros.group)
         node.create_service(
             Trigger, "power_on",
