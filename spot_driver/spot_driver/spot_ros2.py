@@ -30,6 +30,7 @@ from bosdyn.api.geometry_pb2 import Quaternion, SE2VelocityLimit
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.exceptions import InternalServerError
+from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, VISION_FRAME_NAME
 from bosdyn_msgs.msg import ManipulationApiFeedbackResponse, RobotCommandFeedback
 from geometry_msgs.msg import Pose, PoseStamped, TransformStamped, Twist, TwistWithCovarianceStamped
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -283,22 +284,21 @@ class SpotROS(Node):
             frame_prefix = self.name + "/"
         self.frame_prefix: str = frame_prefix
         self.preferred_odom_frame: Parameter = self.declare_parameter(
-            "preferred_odom_frame", frame_prefix + "odom"
+            "preferred_odom_frame", ODOM_FRAME_NAME
         )  # 'vision' or 'odom'
-        self.tf_name_kinematic_odom: Parameter = self.declare_parameter("tf_name_kinematic_odom", frame_prefix + "odom")
-        self.tf_name_raw_kinematic: str = frame_prefix + "odom"
-        self.tf_name_vision_odom: Parameter = self.declare_parameter("tf_name_vision_odom", frame_prefix + "vision")
-        self.tf_name_raw_vision: str = frame_prefix + "vision"
+        self.tf_name_preferred_odom_frame = frame_prefix + self.preferred_odom_frame.value
+        self.tf_name_kinematic_odom: str = frame_prefix + ODOM_FRAME_NAME
+        self.tf_name_vision_odom: str = frame_prefix + VISION_FRAME_NAME
+        self.tf_name_body: str = frame_prefix + BODY_FRAME_NAME
 
         if (
-            self.preferred_odom_frame.value != self.tf_name_raw_kinematic
-            and self.preferred_odom_frame.value != self.tf_name_raw_vision
+            self.tf_name_preferred_odom_frame not in [self.tf_name_kinematic_odom, self.tf_name_vision_odom]
         ):
-            error_msg = f'rosparam "preferred_odom_frame" should be "{frame_prefix}odom" or "{frame_prefix}vision".'
+            error_msg = f'rosparam "preferred_odom_frame" should be "{frame_prefix + ODOM_FRAME_NAME}" or "{frame_prefix + VISION_FRAME_NAME}".'
             self.get_logger().error(error_msg)
             raise ValueError(error_msg)
 
-        self.tf_name_graph_nav_body: str = frame_prefix + "body"
+        self.tf_name_graph_nav_body: str = self.tf_name_body
 
         # logger for spot wrapper
         name_with_dot = ""
@@ -759,7 +759,7 @@ class SpotROS(Node):
                 self.joint_state_pub.publish(joint_state)
 
             # TF
-            tf_msg = get_tf_from_state(state, self.spot_wrapper, self.preferred_odom_frame.value)
+            tf_msg = get_tf_from_state(state, self.spot_wrapper, self.tf_name_preferred_odom_frame)
             if len(tf_msg.transforms) > 0:
                 self.dynamic_broadcaster.sendTransform(tf_msg.transforms)
 
@@ -768,7 +768,7 @@ class SpotROS(Node):
             self.odom_twist_pub.publish(twist_odom_msg)
 
             # Odom #
-            if self.preferred_odom_frame.value == self.spot_wrapper.frame_prefix + "vision":
+            if self.tf_name_preferred_odom_frame == self.spot_wrapper.frame_prefix + VISION_FRAME_NAME:
                 odom_msg = get_odom_from_state(state, self.spot_wrapper, use_vision=True)
             else:
                 odom_msg = get_odom_from_state(state, self.spot_wrapper, use_vision=False)
@@ -2125,7 +2125,7 @@ class SpotROS(Node):
         frame_prefix = MOCK_HOSTNAME + "/"
         if self.spot_wrapper is not None:
             frame_prefix = self.spot_wrapper.frame_prefix
-        excluded_frames = [self.tf_name_vision_odom.value, self.tf_name_kinematic_odom.value, frame_prefix + "body"]
+        excluded_frames = [self.tf_name_vision_odom, self.tf_name_kinematic_odom, self.tf_name_body]
         excluded_frames = [f[f.rfind("/") + 1 :] for f in excluded_frames]
         for frame_name in image_data.shot.transforms_snapshot.child_to_parent_edge_map:
             if frame_name in excluded_frames:
